@@ -1,0 +1,6 @@
+[submodule "popsift"]
+	path = ext/popsift
+	url = https://github.com/alicevision/PopSift.git
+[submodule "ext/nanobind"]
+	path = ext/nanobind
+	url = https://github.com/wjakob/nanobind
