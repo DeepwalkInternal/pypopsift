@@ -14,6 +14,8 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ext/nanobind)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ext/popsift)
 
