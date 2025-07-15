@@ -16,6 +16,11 @@ NB_MODULE(pypopsift, m) {
     // Expose the constant for Python users
     m.attr("ORIENTATION_MAX_COUNT") = ORIENTATION_MAX_COUNT;
 
+    // Bind custom exceptions
+    nb::exception<popsift::ConfigError>(m, "ConfigError", PyExc_ValueError);
+    nb::exception<popsift::InvalidEnumError>(m, "InvalidEnumError", PyExc_ValueError);
+    nb::exception<popsift::ParameterRangeError>(m, "ParameterRangeError", PyExc_ValueError);
+
     // Bind enums first
     nb::enum_<popsift::Config::GaussMode>(m, "GaussMode")
         .value("VLFeat_Compute", popsift::Config::VLFeat_Compute)
