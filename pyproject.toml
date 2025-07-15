@@ -1,3 +1,7 @@
+[build-system]
+requires = ["scikit-build-core[pyproject]>=0.8.0", "nanobind>=1.9.0"]
+build-backend = "scikit_build_core.build"
+
 [project]
 name = "pypopsift"
 version = "0.1.0"
@@ -7,3 +11,8 @@ requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.3.1",
 ]
+
+[tool.scikit-build]
+# Explicitly include the Python source directory
+wheel.packages = ["src/pypopsift"]
+

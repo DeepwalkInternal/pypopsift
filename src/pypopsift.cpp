@@ -2,6 +2,8 @@
 #include <nanobind/ndarray.h>  
 #include <nanobind/make_iterator.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/typing.h>
+#include <nanobind/operators.h>
 #include <popsift/sift_extremum.h>
 #include <popsift/features.h>
 #include <popsift/sift_constants.h>
@@ -10,16 +12,52 @@
 
 namespace nb = nanobind;
 
-NB_MODULE(pypopsift, m) {
-    m.doc() = "Python bindings for the PopSift library, a real-time SIFT implementation in CUDA.";
+NB_MODULE(_pypopsift_impl, m) {
+    m.doc() = R"pbdoc(
+        Python bindings for the PopSift library
+        
+        PopSift is a real-time SIFT (Scale-Invariant Feature Transform) implementation
+        using CUDA for GPU acceleration. This module provides Python access to
+        PopSift's feature extraction and matching capabilities.
+        
+        Example:
+            >>> import pypopsift
+            >>> config = pypopsift.Config()
+            >>> config.set_sigma(1.6)
+            >>> config.set_octaves(4)
+    )pbdoc";
 
-    // Expose the constant for Python users
-    m.attr("ORIENTATION_MAX_COUNT") = ORIENTATION_MAX_COUNT;
+    // Expose the constant for Python users with documentation
+    m.attr("ORIENTATION_MAX_COUNT") = nb::int_(ORIENTATION_MAX_COUNT);
+    m.attr("__doc_ORIENTATION_MAX_COUNT__") = "Maximum number of orientations per SIFT feature point";
 
-    // Bind custom exceptions
-    nb::exception<popsift::ConfigError>(m, "ConfigError", PyExc_ValueError);
-    nb::exception<popsift::InvalidEnumError>(m, "InvalidEnumError", PyExc_ValueError);
-    nb::exception<popsift::ParameterRangeError>(m, "ParameterRangeError", PyExc_ValueError);
+    // Bind custom exceptions with documentation
+    auto config_error = nb::exception<popsift::ConfigError>(m, "ConfigError", PyExc_ValueError);
+    config_error.doc() = "Raised when SIFT configuration parameters are invalid";
+    
+    auto invalid_enum_error = nb::exception<popsift::InvalidEnumError>(m, "InvalidEnumError", PyExc_ValueError);
+    invalid_enum_error.doc() = "Raised when an invalid enumeration value is provided";
+    
+    auto param_range_error = nb::exception<popsift::ParameterRangeError>(m, "ParameterRangeError", PyExc_ValueError);
+    param_range_error.doc() = "Raised when a parameter value is outside its valid range";
+    
+    auto memory_error = nb::exception<popsift::MemoryError>(m, "MemoryError", PyExc_MemoryError);
+    memory_error.doc() = "Raised when memory allocation fails in PopSift operations";
+    
+    auto cuda_error = nb::exception<popsift::CudaError>(m, "CudaError", PyExc_RuntimeError);
+    cuda_error.doc() = "Raised when CUDA operations fail";
+    
+    auto image_error = nb::exception<popsift::ImageError>(m, "ImageError", PyExc_RuntimeError);
+    image_error.doc() = "Raised when image processing operations fail";
+    
+    auto unsupported_error = nb::exception<popsift::UnsupportedOperationError>(m, "UnsupportedOperationError", PyExc_NotImplementedError);
+    unsupported_error.doc() = "Raised when an unsupported operation is attempted";
+    
+    auto logic_error = nb::exception<popsift::LogicError>(m, "LogicError", PyExc_RuntimeError);
+    logic_error.doc() = "Raised when internal logic errors occur";
+
+    // Enable nanobind's stub generation
+    nb::set_leak_warnings(false);
 
     // Bind enums first
     nb::enum_<popsift::Config::GaussMode>(m, "GaussMode")
@@ -112,9 +150,37 @@ NB_MODULE(pypopsift, m) {
             return mode == popsift::Config::ExtractingMode ? "ExtractingMode" : "MatchingMode";
         });
 
-    // Bind the Config class
-    nb::class_<popsift::Config>(m, "Config")
-        .def(nb::init<>(), "Create a new SIFT configuration with default parameters")
+    // Bind the Config class with comprehensive documentation
+    nb::class_<popsift::Config>(m, "Config", R"pbdoc(
+        SIFT feature extraction configuration.
+        
+        This class controls all parameters for SIFT feature detection and description.
+        It allows fine-tuning of the algorithm for different types of images and
+        performance requirements.
+        
+        Examples:
+            Basic usage:
+            
+            >>> config = Config()
+            >>> config.set_sigma(1.6)
+            >>> config.set_octaves(4)
+            
+            Advanced configuration:
+            
+            >>> config = Config(octaves=5, levels=3, sigma=1.8)
+            >>> config.set_gauss_mode("vlfeat")
+            >>> config.set_threshold(0.01)
+    )pbdoc")
+        .def(nb::init<>(), R"pbdoc(
+            Create a new SIFT configuration with default parameters.
+            
+            Returns:
+                A Config object with the following defaults:
+                - octaves: -1 (auto-detect)
+                - levels: 3
+                - sigma: 1.6
+                - threshold: 0.04/3.0
+        )pbdoc")
         
         // Constructor with common parameters
         .def("__init__", [](popsift::Config* self, int octaves, int levels, float sigma) {
@@ -123,16 +189,43 @@ NB_MODULE(pypopsift, m) {
             self->setLevels(levels);
             self->setSigma(sigma);
         }, nb::arg("octaves") = -1, nb::arg("levels") = 3, nb::arg("sigma") = 1.6f,
-        "Create a new SIFT configuration with specified octaves, levels, and sigma")
+        R"pbdoc(
+            Create a new SIFT configuration with specified parameters.
+            
+            Args:
+                octaves: Number of octaves (-1 for auto-detection based on image size)
+                levels: Number of levels per octave (typically 3)
+                sigma: Initial smoothing sigma value (typically 1.6)
+                
+            Raises:
+                ParameterRangeError: If any parameter is outside valid range
+        )pbdoc",
+        nb::sig("def __init__(self, octaves: int = -1, levels: int = 3, sigma: float = 1.6) -> None"))
         
-        // Gaussian mode methods
+        // Gaussian mode methods with detailed documentation and type annotations
         .def("set_gauss_mode", static_cast<void(popsift::Config::*)(const std::string&)>(&popsift::Config::setGaussMode),
-             "Set Gaussian mode from string", nb::arg("mode"))
+             R"pbdoc(
+                Set Gaussian filtering mode from string.
+                
+                Args:
+                    mode: Gaussian mode string. Valid options:
+                        - "vlfeat" (default): VLFeat-style computation
+                        - "vlfeat-hw-interpolated": Hardware-interpolated VLFeat
+                        - "vlfeat-direct": Direct VLFeat computation  
+                        - "opencv": OpenCV-style computation
+                        - "fixed9": Fixed 9-tap filter
+                        - "fixed15": Fixed 15-tap filter
+                        
+                Raises:
+                    InvalidEnumError: If mode string is not recognized
+             )pbdoc", 
+             nb::arg("mode"),
+             nb::sig("def set_gauss_mode(self, mode: typing.Literal['vlfeat', 'vlfeat-hw-interpolated', 'vlfeat-direct', 'opencv', 'fixed9', 'fixed15']) -> None"))
         .def("set_gauss_mode", static_cast<void(popsift::Config::*)(popsift::Config::GaussMode)>(&popsift::Config::setGaussMode),
-             "Set Gaussian mode", nb::arg("mode"))
-        .def("get_gauss_mode", &popsift::Config::getGaussMode, "Get current Gaussian mode")
+             "Set Gaussian mode using enum value", nb::arg("mode"))
+        .def("get_gauss_mode", &popsift::Config::getGaussMode, "Get current Gaussian filtering mode")
         .def_static("get_gauss_mode_default", &popsift::Config::getGaussModeDefault, "Get default Gaussian mode")
-        .def_static("get_gauss_mode_usage", &popsift::Config::getGaussModeUsage, "Get usage string for Gaussian modes")
+        .def_static("get_gauss_mode_usage", &popsift::Config::getGaussModeUsage, "Get help text for all Gaussian mode options")
         
         // SIFT mode methods
         .def("set_sift_mode", &popsift::Config::setSiftMode, "Set SIFT mode", nb::arg("mode"))
