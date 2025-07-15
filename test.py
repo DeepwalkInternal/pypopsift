@@ -14,7 +14,7 @@ def run_comprehensive_test():
         config.levels = 3
         config.setThreshold(0.01)
         config.setEdgeLimit(10.0)
-        config.setMode(pypopsift.SiftMode.PopSift)
+        config.set_sift_mode(pypopsift.SiftMode.PopSift)
         print("✅ Config object created and configured successfully.")
     except Exception as e:
         print(f"❌ Error during configuration: {e}")

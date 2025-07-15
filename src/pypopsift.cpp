@@ -130,7 +130,7 @@ NB_MODULE(pypopsift, m) {
         .def_static("get_gauss_mode_usage", &popsift::Config::getGaussModeUsage, "Get usage string for Gaussian modes")
         
         // SIFT mode methods
-        .def("set_mode", &popsift::Config::setMode, "Set SIFT mode", nb::arg("mode"))
+        .def("set_sift_mode", &popsift::Config::setSiftMode, "Set SIFT mode", nb::arg("mode"))
         .def("get_sift_mode", &popsift::Config::getSiftMode, "Get current SIFT mode")
         
         // Log mode methods
@@ -175,7 +175,7 @@ NB_MODULE(pypopsift, m) {
         .def("set_filter_max_extrema", &popsift::Config::setFilterMaxExtrema, "Set maximum number of extrema to filter", nb::arg("extrema"))
         .def("set_filter_grid_size", &popsift::Config::setFilterGridSize, "Set grid size for filtering", nb::arg("size"))
         .def("set_normalization_multiplier", &popsift::Config::setNormalizationMultiplier, "Set normalization multiplier", nb::arg("multiplier"))
-        .def("set_verbose", &popsift::Config::setVerbose, "Set verbose mode", nb::arg("on") = true)
+        .def("set_verbose", &popsift::Config::setVerbose, "Set verbose mode", nb::arg("enabled") = true)
         .def("set_print_gauss_tables", &popsift::Config::setPrintGaussTables, "Enable printing of Gaussian tables")
         
         // Parameter getters
