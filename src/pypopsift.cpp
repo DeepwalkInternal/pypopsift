@@ -33,10 +33,10 @@ NB_MODULE(_pypopsift_impl, m) {
     auto config_error = nb::exception<popsift::ConfigError>(m, "ConfigError", PyExc_ValueError);
     config_error.doc() = "Raised when SIFT configuration parameters are invalid";
     
-    auto invalid_enum_error = nb::exception<popsift::InvalidEnumError>(m, "InvalidEnumError", PyExc_ValueError);
+    auto invalid_enum_error = nb::exception<popsift::InvalidEnumError>(m, "InvalidEnumError", config_error.ptr());
     invalid_enum_error.doc() = "Raised when an invalid enumeration value is provided";
     
-    auto param_range_error = nb::exception<popsift::ParameterRangeError>(m, "ParameterRangeError", PyExc_ValueError);
+    auto param_range_error = nb::exception<popsift::ParameterRangeError>(m, "ParameterRangeError", config_error.ptr());
     param_range_error.doc() = "Raised when a parameter value is outside its valid range";
     
     auto memory_error = nb::exception<popsift::MemoryError>(m, "MemoryError", PyExc_MemoryError);
