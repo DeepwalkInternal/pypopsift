@@ -8,7 +8,16 @@
 #include <popsift/features.h>
 #include <popsift/sift_constants.h>
 #include <popsift/sift_conf.h>
+#include <popsift/popsift.h>
 #include <sstream>
+#include <cuda_runtime.h>
+
+// Helper to get current CUDA device
+int get_cuda_device() {
+    int device = 0;
+    cudaGetDevice(&device);
+    return device;
+}
 
 namespace nb = nanobind;
 
@@ -436,4 +445,371 @@ NB_MODULE(_pypopsift_impl, m) {
         });
 
     m.attr("Features") = m.attr("FeaturesHost");
+
+    // FeaturesDev class binding with CuPy integration
+    nb::class_<popsift::FeaturesDev>(m, "FeaturesDev", R"pbdoc(
+        Container for SIFT features and descriptors in GPU device memory.
+        
+        FeaturesDev holds SIFT features and descriptors in CUDA device memory,
+        optimized for GPU-to-GPU matching operations. It provides CuPy array
+        views of the device memory for easy integration with GPU computing workflows.
+        
+        Examples:
+            Basic usage:
+            
+            >>> features_dev = FeaturesDev(100, 200)
+            >>> features_array = features_dev.get_features_array()  # CuPy array
+            >>> descriptors_array = features_dev.get_descriptors_array()  # CuPy array
+            
+            GPU matching workflow:
+            
+            >>> # Extract features in matching mode
+            >>> config = Config()
+            >>> config.set_processing_mode(ProcessingMode.MatchingMode)
+            >>> popsift = PopSift(config, ProcessingMode.MatchingMode)
+            >>> job = popsift.enqueue(width, height, image_data)
+            >>> features_dev = job.get_dev()
+            >>> # Use CuPy arrays for GPU operations
+            >>> features_cp = features_dev.get_features_array()
+            >>> descriptors_cp = features_dev.get_descriptors_array()
+    )pbdoc")
+        .def(nb::init<>(), "Create an empty features container in device memory")
+        .def(nb::init<int, int>(), "Create a features container with specified feature and descriptor counts in device memory")
+        .def("size", &popsift::FeaturesDev::size, "Get the number of features")
+        .def("get_feature_count", &popsift::FeaturesDev::getFeatureCount, "Get the number of features")
+        .def("get_descriptor_count", &popsift::FeaturesDev::getDescriptorCount, "Get the number of descriptors")
+        .def("reset", &popsift::FeaturesDev::reset, "Reset the container with new feature and descriptor counts")
+        .def("match", &popsift::FeaturesDev::match, "Match features against another FeaturesDev object", nb::arg("other"))
+        .def("get_features_array", [](popsift::FeaturesDev& self) {
+            nb::module_ cupy = nb::module_::import_("cupy");
+            void* ptr = self.getFeatures();
+            int feature_count = self.getFeatureCount();
+            size_t bytes = feature_count * sizeof(popsift::Feature);
+            int device = get_cuda_device();
+            nb::object unowned = cupy.attr("cuda").attr("UnownedMemory")(
+                reinterpret_cast<uintptr_t>(ptr), bytes, nb::cast(&self), device
+            );
+            nb::object memptr = cupy.attr("cuda").attr("MemoryPointer")(unowned, 0);
+            nb::object array = cupy.attr("ndarray")(
+                nb::make_tuple(feature_count, 7),
+                cupy.attr("float32"),
+                memptr
+            );
+            return array;
+        }, nb::rv_policy::reference_internal, R"pbdoc(
+            Get features as a zero-copy CuPy array in device memory.
+            
+            Returns:
+                cupy.ndarray: CuPy array view of features in device memory.
+                             Shape is (num_features, 7) where the 7 fields are:
+                             [debug_octave, xpos, ypos, sigma, num_ori, orientation[0], orientation[1]]
+                             
+            Note:
+                This returns a view into the device memory, not a copy.
+                The array is only valid while the FeaturesDev object exists.
+        )pbdoc")
+        .def("get_descriptors_array", [](popsift::FeaturesDev& self) {
+            nb::module_ cupy = nb::module_::import_("cupy");
+            void* ptr = self.getDescriptors();
+            int descriptor_count = self.getDescriptorCount();
+            size_t bytes = descriptor_count * sizeof(popsift::Descriptor);
+            int device = get_cuda_device();
+            nb::object unowned = cupy.attr("cuda").attr("UnownedMemory")(
+                reinterpret_cast<uintptr_t>(ptr), bytes, nb::cast(&self), device
+            );
+            nb::object memptr = cupy.attr("cuda").attr("MemoryPointer")(unowned, 0);
+            nb::object array = cupy.attr("ndarray")(
+                nb::make_tuple(descriptor_count, 128),
+                cupy.attr("float32"),
+                memptr
+            );
+            return array;
+        }, nb::rv_policy::reference_internal, R"pbdoc(
+            Get descriptors as a zero-copy CuPy array in device memory.
+            
+            Returns:
+                cupy.ndarray: CuPy array view of descriptors in device memory.
+                             Shape is (num_descriptors, 128) for SIFT features.
+                             
+            Note:
+                This returns a view into the device memory, not a copy.
+                The array is only valid while the FeaturesDev object exists.
+        )pbdoc")
+        .def("get_reverse_map_array", [](popsift::FeaturesDev& self) {
+            nb::module_ cupy = nb::module_::import_("cupy");
+            void* ptr = self.getReverseMap();
+            int descriptor_count = self.getDescriptorCount();
+            size_t bytes = descriptor_count * sizeof(int);
+            int device = get_cuda_device();
+            nb::object unowned = cupy.attr("cuda").attr("UnownedMemory")(
+                reinterpret_cast<uintptr_t>(ptr), bytes, nb::cast(&self), device
+            );
+            nb::object memptr = cupy.attr("cuda").attr("MemoryPointer")(unowned, 0);
+            nb::object array = cupy.attr("ndarray")(
+                nb::make_tuple(descriptor_count),
+                cupy.attr("int32"),
+                memptr
+            );
+            return array;
+        }, nb::rv_policy::reference_internal, R"pbdoc(
+            Get reverse mapping as a zero-copy CuPy array in device memory.
+            
+            Returns:
+                cupy.ndarray: CuPy array view of reverse mapping in device memory.
+                             Shape is (num_descriptors,) mapping descriptors to features.
+                             
+            Note:
+                This returns a view into the device memory, not a copy.
+                The array is only valid while the FeaturesDev object exists.
+        )pbdoc")
+        .def("to_host", [](popsift::FeaturesDev& self) -> popsift::FeaturesHost* {
+            // Create a new FeaturesHost with the same dimensions
+            int feature_count = self.getFeatureCount();
+            int descriptor_count = self.getDescriptorCount();
+            
+            auto* host_features = new popsift::FeaturesHost(feature_count, descriptor_count);
+            
+            // Copy data from device to host
+            cudaMemcpy(host_features->getFeatures(), self.getFeatures(), 
+                      feature_count * sizeof(popsift::Feature), cudaMemcpyDeviceToHost);
+            cudaMemcpy(host_features->getDescriptors(), self.getDescriptors(), 
+                      descriptor_count * sizeof(popsift::Descriptor), cudaMemcpyDeviceToHost);
+            
+            return host_features;
+        }, nb::rv_policy::take_ownership, R"pbdoc(
+            Convert device features to host features.
+            
+            Returns:
+                FeaturesHost: New FeaturesHost object with data copied from device to host.
+                             
+            Note:
+                This performs a device-to-host memory copy and creates a new object.
+                The returned object is independent of the original FeaturesDev.
+        )pbdoc")
+        .def("__len__", &popsift::FeaturesDev::size, "Get the number of features")
+        .def("__repr__", [](const popsift::FeaturesDev& self) {
+            std::ostringstream oss;
+            oss << "<FeaturesDev with " << self.getFeatureCount() 
+                << " features and " << self.getDescriptorCount() << " descriptors in device memory>";
+            return oss.str();
+        })
+        .def("__str__", [](const popsift::FeaturesDev& self) {
+            std::ostringstream oss;
+            oss << "FeaturesDev(features=" << self.getFeatureCount() 
+                << ", descriptors=" << self.getDescriptorCount() << ", device_memory=True)";
+            return oss.str();
+        });
+
+    // Add PopSift ImageMode enum
+    nb::enum_<PopSift::ImageMode>(m, "ImageMode")
+        .value("ByteImages", PopSift::ByteImages, "Byte images with value range 0..255")
+        .value("FloatImages", PopSift::FloatImages, "Float images with value range [0..1[")
+        .def("__str__", [](PopSift::ImageMode mode) {
+            return mode == PopSift::ByteImages ? "ByteImages" : "FloatImages";
+        });
+
+    // Add PopSift AllocTest enum
+    nb::enum_<PopSift::AllocTest>(m, "AllocTest")
+        .value("Ok", PopSift::Ok, "Image dimensions are supported by this device's CUDA texture engine")
+        .value("ImageExceedsLinearTextureLimit", PopSift::ImageExceedsLinearTextureLimit, 
+               "Input image size exceeds the dimensions of the CUDA Texture used for loading")
+        .value("ImageExceedsLayeredSurfaceLimit", PopSift::ImageExceedsLayeredSurfaceLimit,
+               "Scaled input image exceeds the dimensions of the CUDA Surface used for the image pyramid")
+        .def("__str__", [](PopSift::AllocTest test) {
+            switch (test) {
+                case PopSift::Ok: return "Ok";
+                case PopSift::ImageExceedsLinearTextureLimit: return "ImageExceedsLinearTextureLimit";
+                case PopSift::ImageExceedsLayeredSurfaceLimit: return "ImageExceedsLayeredSurfaceLimit";
+                default: return "Unknown";
+            }
+        });
+
+    // SiftJob class binding
+    nb::class_<SiftJob>(m, "SiftJob", R"pbdoc(
+        A job for processing an image through the PopSift pipeline.
+        
+        SiftJob represents an asynchronous task for extracting SIFT features from an image.
+        It provides a future-like interface to retrieve the results once processing is complete.
+        
+        Example:
+            >>> job = popsift.enqueue(width, height, image_data)
+            >>> features = job.get()  # Wait for completion and get results
+    )pbdoc")
+        .def("get", [](SiftJob& self) -> popsift::FeaturesHost* {
+            return self.get();
+        }, nb::rv_policy::reference_internal, R"pbdoc(
+            Wait for job completion and return the extracted features.
+            
+            Returns:
+                FeaturesHost: The extracted SIFT features
+                
+            Raises:
+                RuntimeError: If the job failed to process
+        )pbdoc")
+        .def("get_host", [](SiftJob& self) -> popsift::FeaturesHost* {
+            return self.getHost();
+        }, nb::rv_policy::reference_internal, "Get features as host memory (alias for get())")
+        .def("get_dev", [](SiftJob& self) -> popsift::FeaturesDev* {
+            return self.getDev();
+        }, nb::rv_policy::reference_internal, R"pbdoc(
+            Get features as device memory (for matching mode).
+            
+            Returns:
+                FeaturesDev: The extracted SIFT features in device memory
+                
+            Raises:
+                RuntimeError: If the job failed to process or is not in matching mode
+        )pbdoc")
+        .def("__repr__", [](const SiftJob& self) {
+            return "<SiftJob>";
+        })
+        .def("__str__", [](const SiftJob& self) {
+            return "SiftJob";
+        });
+
+    // PopSift class binding
+    nb::class_<PopSift>(m, "PopSift", R"pbdoc(
+        Main PopSift pipeline for SIFT feature extraction.
+        
+        PopSift provides a high-performance, GPU-accelerated SIFT feature extraction
+        pipeline. It supports both byte (0-255) and float (0-1) image formats and
+        can operate in extracting mode (downloads features to host) or matching mode
+        (keeps features in device memory for fast matching).
+        
+        Examples:
+            Basic usage with byte images:
+            
+            >>> popsift = PopSift(ImageMode.ByteImages)
+            >>> job = popsift.enqueue(width, height, image_data)
+            >>> features = job.get()
+            
+            Advanced usage with configuration:
+            
+            >>> config = Config(octaves=4, levels=3, sigma=1.6)
+            >>> popsift = PopSift(config, ProcessingMode.ExtractingMode, ImageMode.ByteImages)
+            >>> job = popsift.enqueue(width, height, image_data)
+            >>> features = job.get()
+    )pbdoc")
+        .def(nb::init<PopSift::ImageMode, int>(), 
+             nb::arg("image_mode") = PopSift::ByteImages, 
+             nb::arg("device") = 0,
+             R"pbdoc(
+                Create a PopSift pipeline with default configuration.
+                
+                Args:
+                    image_mode: Type of images to process (ByteImages or FloatImages)
+                    device: CUDA device ID to use (default: 0)
+             )pbdoc")
+        .def(nb::init<const popsift::Config&, popsift::Config::ProcessingMode, PopSift::ImageMode, int>(),
+             nb::arg("config"),
+             nb::arg("mode") = popsift::Config::ExtractingMode,
+             nb::arg("image_mode") = PopSift::ByteImages,
+             nb::arg("device") = 0,
+             R"pbdoc(
+                Create a PopSift pipeline with custom configuration.
+                
+                Args:
+                    config: SIFT configuration parameters
+                    mode: Processing mode (ExtractingMode or MatchingMode)
+                    image_mode: Type of images to process
+                    device: CUDA device ID to use
+             )pbdoc")
+        .def("configure", &PopSift::configure, 
+             nb::arg("config"), nb::arg("force") = false,
+             R"pbdoc(
+                Configure the pipeline with new parameters.
+                
+                Args:
+                    config: New SIFT configuration
+                    force: Force reconfiguration even if parameters haven't changed
+                    
+                Returns:
+                    bool: True if configuration was applied successfully
+             )pbdoc")
+        .def("uninit", static_cast<void(PopSift::*)()>(&PopSift::uninit),
+             R"pbdoc(
+                Release all allocated resources.
+                
+                This should be called when the pipeline is no longer needed to free
+                GPU memory and other resources.
+             )pbdoc")
+        .def("test_texture_fit", &PopSift::testTextureFit,
+             nb::arg("width"), nb::arg("height"),
+             R"pbdoc(
+                Test if the current CUDA device can support the given image dimensions.
+                
+                Args:
+                    width: Image width in pixels
+                    height: Image height in pixels
+                    
+                Returns:
+                    AllocTest: Result indicating if the image size is supported
+             )pbdoc")
+        .def("test_texture_fit_error_string", &PopSift::testTextureFitErrorString,
+             nb::arg("err"), nb::arg("width"), nb::arg("height"),
+             R"pbdoc(
+                Get a descriptive error message for texture fit test results.
+                
+                Args:
+                    err: AllocTest result from test_texture_fit
+                    width: Original image width
+                    height: Original image height
+                    
+                Returns:
+                    str: Human-readable error message with suggestions
+             )pbdoc")
+        .def("enqueue", [](PopSift& self, int w, int h, const nb::ndarray<uint8_t, nb::numpy>& image_data) -> SiftJob* {
+            if (image_data.ndim() != 2) {
+                throw std::invalid_argument("Image data must be 2D array");
+            }
+            if (image_data.shape(0) != h || image_data.shape(1) != w) {
+                throw std::invalid_argument("Image dimensions don't match width/height parameters");
+            }
+            return self.enqueue(w, h, image_data.data());
+        }, nb::arg("width"), nb::arg("height"), nb::arg("image_data"),
+           R"pbdoc(
+                Enqueue a byte image for SIFT feature extraction.
+                
+                Args:
+                    width: Image width in pixels
+                    height: Image height in pixels
+                    image_data: 2D numpy array with uint8 values (0-255)
+                    
+                Returns:
+                    SiftJob: Job object for tracking the processing task
+                    
+                Raises:
+                    ImageError: If image mode is not ByteImages
+                    RuntimeError: If image dimensions exceed GPU limits
+             )pbdoc")
+        .def("enqueue", [](PopSift& self, int w, int h, const nb::ndarray<float, nb::numpy>& image_data) -> SiftJob* {
+            if (image_data.ndim() != 2) {
+                throw std::invalid_argument("Image data must be 2D array");
+            }
+            if (image_data.shape(0) != h || image_data.shape(1) != w) {
+                throw std::invalid_argument("Image dimensions don't match width/height parameters");
+            }
+            return self.enqueue(w, h, image_data.data());
+        }, nb::arg("width"), nb::arg("height"), nb::arg("image_data"),
+           R"pbdoc(
+                Enqueue a float image for SIFT feature extraction.
+                
+                Args:
+                    width: Image width in pixels
+                    height: Image height in pixels
+                    image_data: 2D numpy array with float values (0.0-1.0)
+                    
+                Returns:
+                    SiftJob: Job object for tracking the processing task
+                    
+                Raises:
+                    ImageError: If image mode is not FloatImages
+                    RuntimeError: If image dimensions exceed GPU limits
+             )pbdoc")
+        .def("__repr__", [](const PopSift& self) {
+            return "<PopSift>";
+        })
+        .def("__str__", [](const PopSift& self) {
+            return "PopSift";
+        });
 }

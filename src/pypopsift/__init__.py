@@ -5,7 +5,7 @@ This module provides Python access to the PopSift library for SIFT feature extra
 and matching using CUDA acceleration.
 """
 
-from ._pypopsift_impl import (
+from ._pypopsift_impl import ( # type: ignore
     # Constants
     ORIENTATION_MAX_COUNT,
     
@@ -28,6 +28,8 @@ from ._pypopsift_impl import (
     NormMode,
     GridFilterMode,
     ProcessingMode,
+    ImageMode,
+    AllocTest,
     
     # Main classes
     Config,
@@ -35,6 +37,9 @@ from ._pypopsift_impl import (
     Feature,
     FeaturesHost,
     Features,
+    FeaturesDev,
+    PopSift,
+    SiftJob,
 )
 
 __version__ = "0.1.0"
@@ -61,6 +66,8 @@ __all__ = [
     "NormMode",
     "GridFilterMode",
     "ProcessingMode",
+    "ImageMode",
+    "AllocTest",
     
     # Main classes
     "Config",
@@ -68,4 +75,7 @@ __all__ = [
     "Feature",
     "FeaturesHost",
     "Features",
+    "FeaturesDev",
+    "PopSift",
+    "SiftJob",
 ]
