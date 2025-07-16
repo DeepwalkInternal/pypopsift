@@ -13,6 +13,5 @@ dependencies = [
 ]
 
 [tool.scikit-build]
-# Explicitly include the Python source directory
 wheel.packages = ["src/pypopsift"]
 
