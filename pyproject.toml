@@ -9,6 +9,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "cupy-cuda12x>=13.5.1",
     "numpy>=2.3.1",
 ]
 
@@ -17,7 +18,11 @@ test = ["pytest>=8.4.1", "pytest-cov>=5.0.0"]
 dev = ["pytest>=8.4.1", "pytest-cov>=5.0.0", "black>=24.0.0", "ruff>=0.3.0"]
 
 [tool.scikit-build]
-wheel.packages = ["src/pypopsift"]
+minimum-version = "0.4"
+build-dir = "build/{wheel_tag}"
+
+[tool.scikit-build.wheel]
+py-api = "cp312"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
