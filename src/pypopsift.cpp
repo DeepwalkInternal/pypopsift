@@ -27,11 +27,9 @@ NB_MODULE(_pypopsift_impl, m) {
             >>> config.set_octaves(4)
     )pbdoc";
 
-    // Expose the constant for Python users with documentation
     m.attr("ORIENTATION_MAX_COUNT") = nb::int_(ORIENTATION_MAX_COUNT);
     m.attr("__doc_ORIENTATION_MAX_COUNT__") = "Maximum number of orientations per SIFT feature point";
 
-    // Bind custom exceptions with documentation
     auto config_error = nb::exception<popsift::ConfigError>(m, "ConfigError", PyExc_ValueError);
     config_error.doc() = "Raised when SIFT configuration parameters are invalid";
     
@@ -56,10 +54,7 @@ NB_MODULE(_pypopsift_impl, m) {
     auto logic_error = nb::exception<popsift::LogicError>(m, "LogicError", PyExc_RuntimeError);
     logic_error.doc() = "Raised when internal logic errors occur";
 
-    // Enable nanobind's stub generation
     nb::set_leak_warnings(false);
-
-    // Bind enums first
     nb::enum_<popsift::Config::GaussMode>(m, "GaussMode")
         .value("VLFeat_Compute", popsift::Config::VLFeat_Compute)
         .value("VLFeat_Relative", popsift::Config::VLFeat_Relative)
@@ -150,7 +145,6 @@ NB_MODULE(_pypopsift_impl, m) {
             return mode == popsift::Config::ExtractingMode ? "ExtractingMode" : "MatchingMode";
         });
 
-    // Bind the Config class with comprehensive documentation
     nb::class_<popsift::Config>(m, "Config", R"pbdoc(
         SIFT feature extraction configuration.
         
@@ -182,7 +176,6 @@ NB_MODULE(_pypopsift_impl, m) {
                 - threshold: 0.04/3.0
         )pbdoc")
         
-        // Constructor with common parameters
         .def("__init__", [](popsift::Config* self, int octaves, int levels, float sigma) {
             new (self) popsift::Config();
             self->setOctaves(octaves);
@@ -202,7 +195,6 @@ NB_MODULE(_pypopsift_impl, m) {
         )pbdoc",
         nb::sig("def __init__(self, octaves: int = -1, levels: int = 3, sigma: float = 1.6) -> None"))
         
-        // Gaussian mode methods with detailed documentation and type annotations
         .def("set_gauss_mode", static_cast<void(popsift::Config::*)(const std::string&)>(&popsift::Config::setGaussMode),
              R"pbdoc(
                 Set Gaussian filtering mode from string.
@@ -211,6 +203,7 @@ NB_MODULE(_pypopsift_impl, m) {
                     mode: Gaussian mode string. Valid options:
                         - "vlfeat" (default): VLFeat-style computation
                         - "vlfeat-hw-interpolated": Hardware-interpolated VLFeat
+                        - "relative": Synonym for vlfeat-hw-interpolated
                         - "vlfeat-direct": Direct VLFeat computation  
                         - "opencv": OpenCV-style computation
                         - "fixed9": Fixed 9-tap filter
@@ -220,33 +213,28 @@ NB_MODULE(_pypopsift_impl, m) {
                     InvalidEnumError: If mode string is not recognized
              )pbdoc", 
              nb::arg("mode"),
-             nb::sig("def set_gauss_mode(self, mode: typing.Literal['vlfeat', 'vlfeat-hw-interpolated', 'vlfeat-direct', 'opencv', 'fixed9', 'fixed15']) -> None"))
+             nb::sig("def set_gauss_mode(self, mode: typing.Literal['vlfeat', 'vlfeat-hw-interpolated', 'relative', 'vlfeat-direct', 'opencv', 'fixed9', 'fixed15']) -> None"))
         .def("set_gauss_mode", static_cast<void(popsift::Config::*)(popsift::Config::GaussMode)>(&popsift::Config::setGaussMode),
              "Set Gaussian mode using enum value", nb::arg("mode"))
         .def("get_gauss_mode", &popsift::Config::getGaussMode, "Get current Gaussian filtering mode")
         .def_static("get_gauss_mode_default", &popsift::Config::getGaussModeDefault, "Get default Gaussian mode")
         .def_static("get_gauss_mode_usage", &popsift::Config::getGaussModeUsage, "Get help text for all Gaussian mode options")
         
-        // SIFT mode methods
         .def("set_sift_mode", &popsift::Config::setSiftMode, "Set SIFT mode", nb::arg("mode"))
         .def("get_sift_mode", &popsift::Config::getSiftMode, "Get current SIFT mode")
         
-        // Log mode methods
         .def("set_log_mode", &popsift::Config::setLogMode, "Set log mode", nb::arg("mode") = popsift::Config::All)
         .def("get_log_mode", &popsift::Config::getLogMode, "Get current log mode")
         
-        // Scaling mode methods
         .def("set_scaling_mode", &popsift::Config::setScalingMode, "Set scaling mode", nb::arg("mode") = popsift::Config::ScaleDefault)
         .def("get_scaling_mode", &popsift::Config::getScalingMode, "Get current scaling mode")
         
-        // Descriptor mode methods
         .def("set_desc_mode", static_cast<void(popsift::Config::*)(const std::string&)>(&popsift::Config::setDescMode),
              "Set descriptor mode from string", nb::arg("mode"))
         .def("set_desc_mode", static_cast<void(popsift::Config::*)(popsift::Config::DescMode)>(&popsift::Config::setDescMode),
              "Set descriptor mode", nb::arg("mode") = popsift::Config::Loop)
         .def("get_desc_mode", &popsift::Config::getDescMode, "Get current descriptor mode")
         
-        // Normalization mode methods
         .def("set_norm_mode", static_cast<void(popsift::Config::*)(popsift::Config::NormMode)>(&popsift::Config::setNormMode),
              "Set normalization mode", nb::arg("mode"))
         .def("set_norm_mode", static_cast<void(popsift::Config::*)(const std::string&)>(&popsift::Config::setNormMode),
@@ -255,14 +243,12 @@ NB_MODULE(_pypopsift_impl, m) {
         .def_static("get_norm_mode_default", &popsift::Config::getNormModeDefault, "Get default normalization mode")
         .def_static("get_norm_mode_usage", &popsift::Config::getNormModeUsage, "Get usage string for normalization modes")
         
-        // Filter mode methods
         .def("set_filter_sorting", static_cast<void(popsift::Config::*)(const std::string&)>(&popsift::Config::setFilterSorting),
              "Set filter sorting from string", nb::arg("direction"))
         .def("set_filter_sorting", static_cast<void(popsift::Config::*)(popsift::Config::GridFilterMode)>(&popsift::Config::setFilterSorting),
              "Set filter sorting mode", nb::arg("mode"))
         .def("get_filter_sorting", &popsift::Config::getFilterSorting, "Get current filter sorting mode")
         
-        // Parameter setters
         .def("set_downsampling", &popsift::Config::setDownsampling, "Set downsampling factor", nb::arg("factor"))
         .def("set_octaves", &popsift::Config::setOctaves, "Set number of octaves", nb::arg("octaves"))
         .def("set_levels", &popsift::Config::setLevels, "Set number of levels per octave", nb::arg("levels"))
@@ -276,7 +262,6 @@ NB_MODULE(_pypopsift_impl, m) {
         .def("set_verbose", &popsift::Config::setVerbose, "Set verbose mode", nb::arg("enabled") = true)
         .def("set_print_gauss_tables", &popsift::Config::setPrintGaussTables, "Enable printing of Gaussian tables")
         
-        // Parameter getters
         .def("get_upscale_factor", &popsift::Config::getUpscaleFactor, "Get upscale factor")
         .def("get_max_extrema", &popsift::Config::getMaxExtrema, "Get maximum number of extrema")
         .def("get_filter_max_extrema", &popsift::Config::getFilterMaxExtrema, "Get maximum number of extrema for filtering")
@@ -288,19 +273,14 @@ NB_MODULE(_pypopsift_impl, m) {
         .def("get_initial_blur", &popsift::Config::getInitialBlur, "Get initial blur value")
         .def("if_print_gauss_tables", &popsift::Config::ifPrintGaussTables, "Check if Gaussian tables should be printed")
         
-
-        
-        // Public fields (read-write)
         .def_rw("octaves", &popsift::Config::octaves, "Number of octaves (-1 for auto)")
         .def_rw("levels", &popsift::Config::levels, "Number of levels per octave")
         .def_rw("sigma", &popsift::Config::sigma, "Sigma value")
         .def_rw("verbose", &popsift::Config::verbose, "Verbose output flag")
         
-        // Comparison operators
         .def("__eq__", &popsift::Config::equal, nb::arg("other"))
         .def("__ne__", [](const popsift::Config& self, const popsift::Config& other) { return !self.equal(other); }, nb::arg("other"))
         
-        // String representation
         .def("__repr__", [](const popsift::Config& self) {
             std::ostringstream oss;
             oss << "Config(octaves=" << self.octaves 
