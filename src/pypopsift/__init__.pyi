@@ -1,29 +1,98 @@
 """
-Type stubs for pypopsift - Python bindings for PopSift SIFT library.
+Type stubs for PyPopSift.
 
-This file provides comprehensive type information for static analysis tools,
-IDEs, and type checkers while preserving the rich documentation from the
-underlying nanobind C++ implementation.
+This module provides comprehensive type annotations for PyPopSift's enhanced
+SIFT feature extraction interface with integrated ImageMode, input validation,
+and symmetric CPU/GPU feature support.
 """
 
-from typing import Literal, overload
+import numpy
+import numpy.typing as npt
 import typing
-from collections.abc import Iterator
-import cupy
+from typing import overload, Optional, Union
+
+# Type aliases for clarity
+UInt8Array = numpy.ndarray[typing.Any, numpy.dtype[numpy.uint8]]
+Float32Array = numpy.ndarray[typing.Any, numpy.dtype[numpy.float32]]
+Image2D = Union[UInt8Array, Float32Array]
+
+class ImageMode:
+    """Image mode enumeration for PopSift processing."""
+    ByteImages: ImageMode
+    FloatImages: ImageMode
+    def __str__(self) -> str: ...
+
+class AllocTest:
+    """Allocation test results for GPU texture limits."""
+    Ok: AllocTest
+    ImageExceedsLinearTextureLimit: AllocTest
+    ImageExceedsLayeredSurfaceLimit: AllocTest
+    def __str__(self) -> str: ...
+
+class GaussMode:
+    """Gaussian filtering modes."""
+    VLFeat_Compute: GaussMode
+    VLFeat_Relative: GaussMode
+    VLFeat_Relative_All: GaussMode
+    OpenCV_Compute: GaussMode
+    Fixed9: GaussMode
+    Fixed15: GaussMode
+    def __str__(self) -> str: ...
+
+class SiftMode:
+    """SIFT algorithm variants."""
+    PopSift: SiftMode
+    OpenCV: SiftMode
+    VLFeat: SiftMode
+    def __str__(self) -> str: ...
+
+class LogMode:
+    """Logging modes."""
+    # None: LogMode  # Commented out due to conflict with builtin None
+    All: LogMode
+    def __str__(self) -> str: ...
+
+class ScalingMode:
+    """Image scaling modes."""
+    ScaleDirect: ScalingMode
+    ScaleDefault: ScalingMode
+    def __str__(self) -> str: ...
+
+class DescMode:
+    """Descriptor computation modes."""
+    Loop: DescMode
+    ILoop: DescMode
+    Grid: DescMode
+    IGrid: DescMode
+    NoTile: DescMode
+    def __str__(self) -> str: ...
+
+class NormMode:
+    """Normalization modes."""
+    RootSift: NormMode
+    Classic: NormMode
+    def __str__(self) -> str: ...
+
+class GridFilterMode:
+    """Grid filtering modes."""
+    RandomScale: GridFilterMode
+    LargestScaleFirst: GridFilterMode
+    SmallestScaleFirst: GridFilterMode
+    def __str__(self) -> str: ...
 
 # Constants
 ORIENTATION_MAX_COUNT: int
 
-# Exception hierarchy with proper inheritance
+# Exception classes
 class ConfigError(ValueError):
     """Raised when SIFT configuration parameters are invalid."""
-    def __init__(self, message: str) -> None: ...
+    ...
 
-class InvalidEnumError(ValueError):
+class InvalidEnumError(ConfigError):
     """Raised when an invalid enumeration value is provided."""
     ...
 
-class ParameterRangeError(ValueError):
+class ParameterRangeError(ConfigError):
     """Raised when a parameter value is outside its valid range."""
     ...
 
@@ -47,221 +116,19 @@ class LogicError(RuntimeError):
     """Raised when internal logic errors occur."""
     ...
 
-# Enumerations
-class GaussMode:
-    """Gaussian filtering mode enumeration."""
-    VLFeat_Compute: GaussMode
-    VLFeat_Relative: GaussMode
-    VLFeat_Relative_All: GaussMode
-    OpenCV_Compute: GaussMode
-    Fixed9: GaussMode
-    Fixed15: GaussMode
-    def __str__(self) -> str: ...
-
-class SiftMode:
-    """SIFT algorithm mode enumeration."""
-    PopSift: SiftMode
-    OpenCV: SiftMode
-    VLFeat: SiftMode
-    def __str__(self) -> str: ...
-
-class LogMode:
-    """Logging mode enumeration."""
-    NONE: LogMode
-    All: LogMode
-    def __str__(self) -> str: ...
-
-class ScalingMode:
-    """Image scaling mode enumeration."""
-    ScaleDirect: ScalingMode
-    ScaleDefault: ScalingMode
-    def __str__(self) -> str: ...
-
-class DescMode:
-    """Descriptor computation mode enumeration."""
-    Loop: DescMode
-    ILoop: DescMode
-    Grid: DescMode
-    IGrid: DescMode
-    NoTile: DescMode
-    def __str__(self) -> str: ...
-
-class NormMode:
-    """Descriptor normalization mode enumeration."""
-    RootSift: NormMode
-    Classic: NormMode
-    def __str__(self) -> str: ...
-
-class GridFilterMode:
-    """Grid filtering mode enumeration."""
-    RandomScale: GridFilterMode
-    LargestScaleFirst: GridFilterMode
-    SmallestScaleFirst: GridFilterMode
-    def __str__(self) -> str: ...
-
-class ProcessingMode:
-    """Processing mode enumeration."""
-    ExtractingMode: ProcessingMode
-    MatchingMode: ProcessingMode
-    def __str__(self) -> str: ...
-
-class ImageMode:
-    """Image mode enumeration."""
-    ByteImages: ImageMode
-    FloatImages: ImageMode
-    def __str__(self) -> str: ...
-
-class AllocTest:
-    """Allocation test result enumeration."""
-    Ok: AllocTest
-    ImageExceedsLinearTextureLimit: AllocTest
-    ImageExceedsLayeredSurfaceLimit: AllocTest
-    def __str__(self) -> str: ...
-
-# Main classes
-class Config:
-    """
-    SIFT feature extraction configuration.
-    
-    This class controls all parameters for SIFT feature detection and description.
-    It allows fine-tuning of the algorithm for different types of images and
-    performance requirements.
-    """
-    
-    # Properties
-    octaves: int
-    levels: int
-    sigma: float
-    verbose: bool
-    
-    @overload
-    def __init__(self) -> None:
-        """
-        Create a new SIFT configuration with default parameters.
-        
-        Returns:
-            A Config object with the following defaults:
-            - octaves: -1 (auto-detect)
-            - levels: 3
-            - sigma: 1.6
-            - threshold: 0.04/3.0
-        """
-        ...
-    
-    @overload
-    def __init__(self, octaves: int = -1, levels: int = 3, sigma: float = 1.6) -> None:
-        """
-        Create a new SIFT configuration with specified parameters.
-        
-        Args:
-            octaves: Number of octaves (-1 for auto-detection based on image size)
-            levels: Number of levels per octave (typically 3)
-            sigma: Initial smoothing sigma value (typically 1.6)
-            
-        Raises:
-            ParameterRangeError: If any parameter is outside valid range
-        """
-        ...
-    
-    # Gaussian mode methods
-    @overload
-    def set_gauss_mode(self, mode: Literal['vlfeat', 'vlfeat-hw-interpolated', 'vlfeat-direct', 'opencv', 'fixed9', 'fixed15']) -> None:
-        """
-        Set Gaussian filtering mode from string.
-        
-        Args:
-            mode: Gaussian mode string. Valid options:
-                - "vlfeat" (default): VLFeat-style computation
-                - "vlfeat-hw-interpolated": Hardware-interpolated VLFeat
-                - "vlfeat-direct": Direct VLFeat computation  
-                - "opencv": OpenCV-style computation
-                - "fixed9": Fixed 9-tap filter
-                - "fixed15": Fixed 15-tap filter
-                
-        Raises:
-            InvalidEnumError: If mode string is not recognized
-        """
-        ...
-    
-    @overload
-    def set_gauss_mode(self, mode: GaussMode) -> None:
-        """Set Gaussian mode using enum value."""
-        ...
-    
-    def get_gauss_mode(self) -> GaussMode:
-        """Get current Gaussian filtering mode."""
-        ...
-    
-    @staticmethod
-    def get_gauss_mode_default() -> GaussMode:
-        """Get default Gaussian mode."""
-        ...
-    
-    @staticmethod
-    def get_gauss_mode_usage() -> str:
-        """Get help text for all Gaussian mode options."""
-        ...
-    
-    # Parameter setters with validation
-    def set_sigma(self, sigma: float) -> None:
-        """
-        Set sigma value for Gaussian smoothing.
-        
-        Args:
-            sigma: Sigma value (must be > 0.0 and <= 10.0)
-            
-        Raises:
-            ParameterRangeError: If sigma is outside valid range
-        """
-        ...
-    
-    def set_threshold(self, threshold: float) -> None:
-        """
-        Set feature detection threshold.
-        
-        Args:
-            threshold: Detection threshold (must be >= 0.0)
-            
-        Raises:
-            ParameterRangeError: If threshold is outside valid range
-        """
-        ...
-    
-    def set_octaves(self, octaves: int) -> None:
-        """Set number of octaves."""
-        ...
-    
-    def set_levels(self, levels: int) -> None:
-        """Set number of levels per octave."""
-        ...
-    
-    # Other configuration methods
-    def set_sift_mode(self, mode: SiftMode) -> None: ...
-    def get_sift_mode(self) -> SiftMode: ...
-    def set_log_mode(self, mode: LogMode = ...) -> None: ...
-    def get_log_mode(self) -> LogMode: ...
-    def set_scaling_mode(self, mode: ScalingMode = ...) -> None: ...
-    def get_scaling_mode(self) -> ScalingMode: ...
-    
-    # String representation
-    def __repr__(self) -> str: ...
-    def __str__(self) -> str: ...
-    def __eq__(self, other: Config) -> bool: ...
-    def __ne__(self, other: Config) -> bool: ...
-
 class Descriptor:
     """SIFT descriptor with 128-dimensional feature vector."""
     
     def __init__(self) -> None:
-        """Create an empty SIFT descriptor with 128 features."""
+        """Create an empty SIFT descriptor."""
         ...
     
     @property
-    def features(self) -> typing.Any:  # numpy array-like
+    def features(self) -> numpy.ndarray[typing.Any, numpy.dtype[numpy.float32]]:
         """Get the 128-dimensional SIFT feature vector as a NumPy array."""
         ...
     
-    def __len__(self) -> Literal[128]:
+    def __len__(self) -> int:
         """Return the number of features (always 128)."""
         ...
     
@@ -272,18 +139,14 @@ class Descriptor:
     def __setitem__(self, index: int, value: float) -> None:
         """Set a feature value by index."""
         ...
-    
-    def __repr__(self) -> str: ...
-    def __str__(self) -> str: ...
 
 class Feature:
-    """SIFT feature point with location, scale, orientation, and descriptors."""
+    """SIFT feature point with position, scale, and orientations."""
     
     def __init__(self) -> None:
         """Create an empty SIFT feature."""
         ...
     
-    # Read-only properties
     @property
     def debug_octave(self) -> int:
         """Debug octave information."""
@@ -310,7 +173,7 @@ class Feature:
         ...
     
     @property
-    def orientation(self) -> typing.Any:  # numpy array-like
+    def orientation(self) -> numpy.ndarray[typing.Any, numpy.dtype[numpy.float32]]:
         """Get all orientations as a NumPy array."""
         ...
     
@@ -329,26 +192,15 @@ class Feature:
     def __getitem__(self, index: int) -> Descriptor:
         """Get descriptor by index (array-style access)."""
         ...
-    
-    def __iter__(self) -> Iterator[Descriptor]:
-        """Iterate over valid descriptors."""
-        ...
-    
-    def __repr__(self) -> str: ...
-    def __str__(self) -> str: ...
 
 class FeaturesHost:
-    """Container for SIFT features and descriptors."""
+    """Container for SIFT features and descriptors in CPU memory."""
     
     @overload
-    def __init__(self) -> None:
-        """Create an empty features container."""
-        ...
+    def __init__(self) -> None: ...
     
-    @overload  
-    def __init__(self, feature_count: int, descriptor_count: int) -> None:
-        """Create a features container with specified feature and descriptor counts."""
-        ...
+    @overload
+    def __init__(self, feature_count: int, descriptor_count: int) -> None: ...
     
     def size(self) -> int:
         """Get the number of features."""
@@ -374,6 +226,18 @@ class FeaturesHost:
         """Unpin memory after CUDA operations."""
         ...
     
+    def get_features_array(self) -> numpy.ndarray[typing.Any, numpy.dtype[numpy.float32]]:
+        """Get features as a zero-copy NumPy array in host memory."""
+        ...
+    
+    def get_descriptors_array(self) -> numpy.ndarray[typing.Any, numpy.dtype[numpy.float32]]:
+        """Get descriptors as a zero-copy NumPy array in host memory."""
+        ...
+    
+    def to_gpu(self) -> FeaturesDev:
+        """Convert host features to device features."""
+        ...
+    
     def __len__(self) -> int:
         """Get the number of features."""
         ...
@@ -381,243 +245,338 @@ class FeaturesHost:
     def __getitem__(self, index: int) -> Feature:
         """Get feature by index."""
         ...
-    
-    def __iter__(self) -> Iterator[Feature]:
-        """Iterate over features."""
-        ...
-    
-    def __repr__(self) -> str: ...
-    def __str__(self) -> str: ...
-
-# Type alias
-Features = FeaturesHost 
 
 class FeaturesDev:
-    """
-    Container for SIFT features and descriptors in GPU device memory.
+    """Container for SIFT features and descriptors in GPU device memory."""
     
-    FeaturesDev holds SIFT features and descriptors in CUDA device memory,
-    optimized for GPU-to-GPU matching operations. It provides zero-copy CuPy array
-    views of the device memory for easy integration with GPU computing workflows.
-    """
     @overload
-    def __init__(self) -> None:
-        """Create an empty features container in device memory."""
-        ...
+    def __init__(self) -> None: ...
+    
     @overload
-    def __init__(self, feature_count: int, descriptor_count: int) -> None:
-        """Create a features container with specified feature and descriptor counts in device memory."""
-        ...
+    def __init__(self, feature_count: int, descriptor_count: int) -> None: ...
+    
     def size(self) -> int:
         """Get the number of features."""
         ...
+    
     def get_feature_count(self) -> int:
         """Get the number of features."""
         ...
+    
     def get_descriptor_count(self) -> int:
         """Get the number of descriptors."""
         ...
+    
     def reset(self, feature_count: int, descriptor_count: int) -> None:
         """Reset the container with new feature and descriptor counts."""
         ...
-    def match(self, other: 'FeaturesDev') -> None:
+    
+    def match(self, other: FeaturesDev) -> None:
         """Match features against another FeaturesDev object."""
         ...
-    def get_features_array(self) -> 'cupy.ndarray':
-        """
-        Get features as a zero-copy CuPy array in device memory.
-        Returns:
-            cupy.ndarray: shape (num_features, 7), dtype float32
-        Note:
-            This is a view into device memory, valid as long as this object exists.
-        """
+    
+    def get_features_array(self) -> typing.Any:
+        """Get features as a zero-copy CuPy array in device memory."""
         ...
-    def get_descriptors_array(self) -> 'cupy.ndarray':
-        """
-        Get descriptors as a zero-copy CuPy array in device memory.
-        Returns:
-            cupy.ndarray: shape (num_descriptors, 128), dtype float32
-        Note:
-            This is a view into device memory, valid as long as this object exists.
-        """
+    
+    def get_descriptors_array(self) -> typing.Any:
+        """Get descriptors as a zero-copy CuPy array in device memory."""
         ...
-    def get_reverse_map_array(self) -> 'cupy.ndarray':
-        """
-        Get reverse mapping as a zero-copy CuPy array in device memory.
-        Returns:
-            cupy.ndarray: shape (num_descriptors,), dtype int32
-        Note:
-            This is a view into device memory, valid as long as this object exists.
-        """
+    
+    def get_reverse_map_array(self) -> typing.Any:
+        """Get reverse mapping as a zero-copy CuPy array in device memory."""
         ...
-    def to_host(self) -> 'FeaturesHost':
-        """Convert device features to host features (device-to-host copy)."""
+    
+    def to_host(self) -> FeaturesHost:
+        """Convert device features to host features."""
         ...
+    
     def __len__(self) -> int:
         """Get the number of features."""
         ...
-    def __repr__(self) -> str: ...
-    def __str__(self) -> str: ... 
+
+class Config:
+    """
+    Enhanced SIFT configuration with integrated ImageMode support.
+    
+    This class provides comprehensive SIFT parameter configuration with
+    ImageMode integration for clean API design and automatic input validation.
+    """
+    
+    def __init__(self, octaves: int = -1, levels: int = 3, sigma: float = 1.6) -> None:
+        """
+        Create a new SIFT configuration.
+        
+        Args:
+            octaves: Number of octaves (-1 for auto-detection)
+            levels: Number of levels per octave
+            sigma: Initial smoothing sigma value
+        """
+        ...
+    
+    def set_image_mode(self, mode: ImageMode) -> None:
+        """
+        Set the image mode for input validation.
+        
+        Args:
+            mode: ImageMode.ByteImages for uint8 or ImageMode.FloatImages for float32
+        """
+        ...
+    
+    def get_image_mode(self) -> ImageMode:
+        """Get the current image mode."""
+        ...
+    
+    # SIFT algorithm parameters
+    @overload
+    def set_gauss_mode(self, mode: typing.Literal['vlfeat', 'vlfeat-hw-interpolated', 'relative', 'vlfeat-direct', 'opencv', 'fixed9', 'fixed15']) -> None: ...
+    
+    @overload
+    def set_gauss_mode(self, mode: GaussMode) -> None: ...
+    
+    def get_gauss_mode(self) -> GaussMode: ...
+    
+    def set_sift_mode(self, mode: SiftMode) -> None: ...
+    def get_sift_mode(self) -> SiftMode: ...
+    
+    def set_log_mode(self, mode: LogMode = ...) -> None: ...
+    def get_log_mode(self) -> LogMode: ...
+    
+    def set_scaling_mode(self, mode: ScalingMode = ...) -> None: ...
+    def get_scaling_mode(self) -> ScalingMode: ...
+    
+    def set_octaves(self, octaves: int) -> None: ...
+    def set_levels(self, levels: int) -> None: ...
+    def set_sigma(self, sigma: float) -> None: ...
+    def set_threshold(self, threshold: float) -> None: ...
+    def set_initial_blur(self, blur: float) -> None: ...
+    def set_filter_max_extrema(self, extrema: int) -> None: ...
+    def set_filter_grid_size(self, size: int) -> None: ...
+    def set_normalization_multiplier(self, multiplier: float) -> None: ...
+    def set_verbose(self, enabled: bool = True) -> None: ...
+    
+    # Properties
+    @property
+    def octaves(self) -> int: ...
+    
+    @property
+    def levels(self) -> int: ...
+    
+    @property
+    def sigma(self) -> float: ...
+    
+    @property
+    def verbose(self) -> bool: ...
+    
+    # Comparison
+    def __eq__(self, other: object) -> bool: ...
+    def __ne__(self, other: object) -> bool: ...
 
 class SiftJob:
     """
     A job for processing an image through the PopSift pipeline.
     
     SiftJob represents an asynchronous task for extracting SIFT features from an image.
-    It provides a future-like interface to retrieve the results once processing is complete.
+    Returns unified Features objects in GPU memory for optimal performance.
     """
     
-    def get(self) -> FeaturesHost:
+    def get(self) -> Features:
         """
         Wait for job completion and return the extracted features.
         
         Returns:
-            FeaturesHost: The extracted SIFT features
-            
-        Raises:
-            RuntimeError: If the job failed to process
+            Features: Unified Features object in GPU memory
         """
         ...
     
-    def get_host(self) -> FeaturesHost:
-        """Get features as host memory (alias for get())."""
+    def get_host(self) -> Optional[FeaturesHost]:
+        """Get features as FeaturesHost (legacy method)."""
         ...
     
-    def get_dev(self) -> FeaturesDev:
-        """
-        Get features as device memory (for matching mode).
-        
-        Returns:
-            FeaturesDev: The extracted SIFT features in device memory
-            
-        Raises:
-            RuntimeError: If the job failed to process or is not in matching mode
-        """
+    def get_dev(self) -> Optional[FeaturesDev]:
+        """Get features as FeaturesDev (legacy method)."""
         ...
-    
-    def __repr__(self) -> str: ...
-    def __str__(self) -> str: ...
 
 class PopSift:
     """
-    Main PopSift pipeline for SIFT feature extraction.
+    Enhanced PopSift pipeline with input validation and automatic uint8 support.
     
-    PopSift provides a high-performance, GPU-accelerated SIFT feature extraction
-    pipeline. It supports both byte (0-255) and float (0-1) image formats and
-    can operate in extracting mode (downloads features to host) or matching mode
-    (keeps features in device memory for fast matching).
+    This class provides a clean, validated interface to PopSift with:
+    - Automatic uint8 to float32 conversion when needed
+    - Input validation for image types and value ranges  
+    - ImageMode integrated into Config for logical API design
+    - Comprehensive error messages with clear guidance
     """
     
     @overload
-    def __init__(self, image_mode: ImageMode = ..., device: int = ...) -> None:
+    def __init__(self, config: Optional[Config] = None, image_mode: Optional[ImageMode] = None, device: int = 0) -> None:
         """
-        Create a PopSift pipeline with default configuration.
+        Create a PopSift pipeline with enhanced Config.
         
         Args:
-            image_mode: Type of images to process (ByteImages or FloatImages)
-            device: CUDA device ID to use (default: 0)
-        """
-        ...
-    
-    @overload
-    def __init__(self, config: Config, mode: ProcessingMode = ..., image_mode: ImageMode = ..., device: int = ...) -> None:
-        """
-        Create a PopSift pipeline with custom configuration.
-        
-        Args:
-            config: SIFT configuration parameters
-            mode: Processing mode (ExtractingMode or MatchingMode)
-            image_mode: Type of images to process
+            config: Enhanced Config object with ImageMode
+            image_mode: Legacy parameter (ignored if config has ImageMode)
             device: CUDA device ID to use
         """
         ...
     
-    def configure(self, config: Config, force: bool = ...) -> bool:
+    @overload
+    def __init__(self, config: typing.Any, image_mode: ImageMode, device: int = 0) -> None:
         """
-        Configure the pipeline with new parameters.
+        Create a PopSift pipeline with legacy Config (backward compatibility).
         
         Args:
-            config: New SIFT configuration
-            force: Force reconfiguration even if parameters haven't changed
-            
-        Returns:
-            bool: True if configuration was applied successfully
+            config: Legacy _pypopsift_impl.Config object
+            image_mode: ImageMode for the legacy config
+            device: CUDA device ID to use
         """
+        ...
+    
+    @property
+    def config(self) -> Config:
+        """Get the PopSift configuration."""
+        ...
+    
+    @property
+    def device(self) -> int:
+        """Get the CUDA device ID."""
+        ...
+    
+    def enqueue(self, image_data: Image2D) -> SiftJob:
+        """
+        Enqueue an image for SIFT feature extraction with automatic validation.
+        
+        Args:
+            image_data: 2D numpy array with shape (height, width)
+                       - uint8: values 0-255 (requires ImageMode.ByteImages)
+                       - float32: values 0.0-1.0 (requires ImageMode.FloatImages)
+                       
+        Returns:
+            SiftJob: Job object for tracking the processing task
+            
+        Raises:
+            ValueError: If image validation fails (wrong mode, invalid range, wrong dimensions)
+            TypeError: If image is not a numpy array or unsupported dtype
+            
+        Note:
+            - Image dimensions are automatically inferred from array shape
+            - uint8 images are automatically converted to float32 for processing
+            - Comprehensive validation ensures type safety and clear error messages
+        """
+        ...
+    
+    def configure(self, config: Config, force: bool = False) -> bool:
+        """Configure the pipeline with new parameters."""
         ...
     
     def uninit(self) -> None:
-        """
-        Release all allocated resources.
-        
-        This should be called when the pipeline is no longer needed to free
-        GPU memory and other resources.
-        """
+        """Release all allocated resources."""
         ...
     
     def test_texture_fit(self, width: int, height: int) -> AllocTest:
-        """
-        Test if the current CUDA device can support the given image dimensions.
-        
-        Args:
-            width: Image width in pixels
-            height: Image height in pixels
-            
-        Returns:
-            AllocTest: Result indicating if the image size is supported
-        """
+        """Test if image dimensions are supported."""
         ...
     
     def test_texture_fit_error_string(self, err: AllocTest, width: int, height: int) -> str:
-        """
-        Get a descriptive error message for texture fit test results.
-        
-        Args:
-            err: AllocTest result from test_texture_fit
-            width: Original image width
-            height: Original image height
-            
-        Returns:
-            str: Human-readable error message with suggestions
-        """
+        """Get error message for texture fit test results."""
         ...
+
+class Features:
+    """
+    Unified SIFT features interface with symmetric CPU/GPU behavior.
+    
+    This class provides a consistent interface for SIFT features regardless of
+    whether they are stored in CPU or GPU memory, with automatic conversions
+    and appropriate array types (NumPy for CPU, CuPy for GPU).
+    """
     
     @overload
-    def enqueue(self, width: int, height: int, image_data: typing.Any) -> SiftJob:
+    def __init__(self, feature_count: int, descriptor_count: int) -> None:
+        """Create Features with specified counts (CPU memory)."""
+        ...
+    
+    @overload 
+    def __init__(self, host_features: FeaturesHost, dev_features: Optional[FeaturesDev]) -> None:
+        """Create Features from existing containers."""
+        ...
+    
+    def is_cpu(self) -> bool:
+        """Check if features are in CPU memory."""
+        ...
+    
+    def is_gpu(self) -> bool:
+        """Check if features are in GPU memory."""
+        ...
+    
+    def cpu(self) -> Features:
+        """Get CPU version of features (transfers from GPU if needed)."""
+        ...
+    
+    def gpu(self) -> Features:
+        """Get GPU version of features (transfers from CPU if needed)."""
+        ...
+    
+    # Common interface
+    def size(self) -> int:
+        """Get the number of features."""
+        ...
+    
+    def get_feature_count(self) -> int:
+        """Get the number of features."""
+        ...
+    
+    def get_descriptor_count(self) -> int:
+        """Get the number of descriptors."""
+        ...
+    
+    def reset(self, feature_count: int, descriptor_count: int) -> None:
+        """Reset with new feature and descriptor counts."""
+        ...
+    
+    # CPU-only operations
+    def pin(self) -> None:
+        """Pin memory for CUDA operations (CPU mode only)."""
+        ...
+    
+    def unpin(self) -> None:
+        """Unpin memory after CUDA operations (CPU mode only)."""
+        ...
+    
+    # GPU-only operations  
+    def match(self, other: Features) -> None:
+        """Match features against another Features object (GPU mode only)."""
+        ...
+    
+    def get_reverse_map_array(self) -> typing.Any:
+        """Get reverse mapping array (GPU mode only, returns CuPy array)."""
+        ...
+    
+    # Symmetric array access
+    def get_features_array(self) -> Union[numpy.ndarray[typing.Any, numpy.dtype[numpy.float32]], typing.Any]:
         """
-        Enqueue a byte image for SIFT feature extraction.
+        Get features as array.
         
-        Args:
-            width: Image width in pixels
-            height: Image height in pixels
-            image_data: 2D numpy array with uint8 values (0-255)
-            
         Returns:
-            SiftJob: Job object for tracking the processing task
-            
-        Raises:
-            ImageError: If image mode is not ByteImages
-            RuntimeError: If image dimensions exceed GPU limits
+            NumPy array for CPU mode, CuPy array for GPU mode.
+            Shape is (num_features, 7) with zero-copy views.
         """
         ...
     
-    @overload
-    def enqueue(self, width: int, height: int, image_data: typing.Any) -> SiftJob:
+    def get_descriptors_array(self) -> Union[numpy.ndarray[typing.Any, numpy.dtype[numpy.float32]], typing.Any]:
         """
-        Enqueue a float image for SIFT feature extraction.
+        Get descriptors as array.
         
-        Args:
-            width: Image width in pixels
-            height: Image height in pixels
-            image_data: 2D numpy array with float values (0.0-1.0)
-            
         Returns:
-            SiftJob: Job object for tracking the processing task
-            
-        Raises:
-            ImageError: If image mode is not FloatImages
-            RuntimeError: If image dimensions exceed GPU limits
+            NumPy array for CPU mode, CuPy array for GPU mode.
+            Shape is (num_descriptors, 128) with zero-copy views.
         """
         ...
     
-    def __repr__(self) -> str: ...
-    def __str__(self) -> str: ... 
+    # Container operations
+    def __len__(self) -> int:
+        """Get the number of features."""
+        ...
+    
+    def __getitem__(self, index: int) -> Feature:
+        """Get feature by index."""
+        ... 
