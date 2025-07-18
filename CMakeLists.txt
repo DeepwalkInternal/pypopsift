@@ -27,17 +27,17 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ext/popsift)
 
 nanobind_add_module(
-  _pypopsift_impl
+  pypopsift
   STABLE_ABI
-  src/pypopsift.cpp
+  src/pypopsift/pypopsift.cpp
 )
 
-target_link_libraries(_pypopsift_impl PRIVATE popsift)
+target_link_libraries(pypopsift PRIVATE popsift)
 
-set_target_properties(_pypopsift_impl PROPERTIES
+set_target_properties(pypopsift PROPERTIES
     INSTALL_RPATH "$ORIGIN"
     BUILD_WITH_INSTALL_RPATH TRUE
 )
 
-install(TARGETS _pypopsift_impl LIBRARY DESTINATION pypopsift)
+install(TARGETS pypopsift LIBRARY DESTINATION pypopsift)
 install(TARGETS popsift LIBRARY DESTINATION pypopsift)
