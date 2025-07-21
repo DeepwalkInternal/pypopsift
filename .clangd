@@ -1,0 +1,15 @@
+CompileFlags:
+  Add: 
+    [
+      '--cuda-gpu-arch=native',
+      '--no-cuda-version-check'
+    ]
+  Remove:
+    [
+      '-rdc=true',
+      '-gencode',
+      '--default-stream=per-thread',
+      '-Xptxas',
+      '-warn-lmem-usage',
+      '-warn-spills',
+    ] 
