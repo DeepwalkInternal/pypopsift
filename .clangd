@@ -1,7 +1,7 @@
 CompileFlags:
   Add: 
     [
-      '--cuda-gpu-arch=native',
+      '--cuda-gpu-arch=sm_89',
       '--no-cuda-version-check'
     ]
   Remove:
